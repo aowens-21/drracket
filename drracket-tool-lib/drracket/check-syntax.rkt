@@ -51,7 +51,8 @@
  syncheck:add-jump-to-definition
  syncheck:add-prefixed-require-reference
  syncheck:add-unused-require
- syncheck:color-range)
+ syncheck:color-range
+ syncheck:add-keybinding)
 
 (define (show-content file-or-stx
                       #:fully-expanded? [fully-expanded? #f]

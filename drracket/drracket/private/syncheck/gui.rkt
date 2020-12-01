@@ -50,6 +50,7 @@ If the namespace does not, they are colored the unbound color.
          drracket/private/syncheck/colors
          drracket/private/syncheck/traversals
          drracket/private/syncheck/annotate
+         drracket/private/syncheck/keybindings
          framework/private/logging-timer)
 (provide tool@)
 
@@ -1181,6 +1182,9 @@ If the namespace does not, they are colored the unbound color.
                        (interval-map-cons*!
                         arrow-record start end to-add null)])))
 
+            (define/public (syncheck:add-keybinding kb-stroke kb-name kb-program)
+              (add-keybinding-to-extension-keymap kb-stroke kb-name kb-program))
+
             (inherit get-top-level-window)
             
             (define/augment (on-change)
@@ -2270,7 +2274,9 @@ If the namespace does not, they are colored the unbound color.
                    defs-text id-pos-left id-pos-right
                    prefix defs-text prefix-left prefix-right)]
             [`#(syncheck:add-unused-require ,req-pos-left ,req-pos-right)
-             (send defs-text syncheck:add-unused-require defs-text req-pos-left req-pos-right)]))
+             (send defs-text syncheck:add-unused-require defs-text req-pos-left req-pos-right)]
+            [`#(syncheck:add-keybinding ,kb-stroke ,kb-name ,kb-program)
+             (send defs-text syncheck:add-keybinding kb-stroke kb-name kb-program)]))
         
         (define/private (build-name-dup? name-dup-pc name-dup-id known-dead-place-channels)
           (define (name-dup? name) 
@@ -2675,6 +2681,23 @@ If the namespace does not, they are colored the unbound color.
                          [editor-snip-admin (send enclosing-editor-snip get-admin)]
                          [enclosing-editor (send editor-snip-admin get-editor)])
                     (loop enclosing-editor))))])))
+
+    (define extension-keymap (new keymap:aug-keymap%))
+    
+    ;; add-keybinding-to-extension-keymap string string el-stmt? -> void
+    ;; adds function with ext-name to the extension-keymap which will interp
+    ;; the ext-program passed in, then maps this function in the keymap
+    ;; to the given stroke
+    (define (add-keybinding-to-extension-keymap stroke ext-name ext-program)
+      (send extension-keymap add-function
+            ext-name
+            (lambda (obj evt)
+              (when (is-a? obj editor<%>)
+                (send obj begin-edit-sequence)
+                (interp-stmt obj (make-hash) ext-program)
+                (send obj end-edit-sequence))))
+      (send extension-keymap map-function stroke ext-name))
+    
     ;                                                 
     ;                                                 
     ;                                                 
@@ -2694,6 +2717,7 @@ If the namespace does not, they are colored the unbound color.
     
     
     (add-check-syntax-key-bindings (drracket:rep:get-drs-bindings-keymap))
+    (send (drracket:rep:get-drs-bindings-keymap) chain-to-keymap extension-keymap #t)
     (fw:color-prefs:add-to-preferences-panel (string-constant check-syntax)
                                              syncheck-add-to-preferences-panel)
     (drracket:module-language-tools:register-online-expansion-pref 

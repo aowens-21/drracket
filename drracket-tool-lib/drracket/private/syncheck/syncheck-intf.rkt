@@ -15,12 +15,12 @@
     syncheck:add-arrow/name-dup/pxpy
     syncheck:add-tail-arrow
     syncheck:add-mouse-over-status
+    syncheck:add-keybinding
     syncheck:add-jump-to-definition
     syncheck:add-definition-target
     syncheck:add-prefixed-require-reference
     syncheck:add-unused-require
     syncheck:color-range
-    
     syncheck:add-rename-menu))
 
 ;; use this to communicate the frame being
@@ -65,6 +65,8 @@
                                    actual? level require-arrow? name-dup?))
     (define/public (syncheck:add-tail-arrow from-text from-pos to-text to-pos) (void))
     (define/public (syncheck:add-mouse-over-status text pos-left pos-right str) (void))
+
+    (define/public (syncheck:add-keybinding kb-stroke kb-name kb-program) (void))
     
     (define/public (syncheck:add-jump-to-definition text start end id filename submods) (void))
     (define/public (syncheck:add-definition-target source pos-left pos-right id mods) (void))

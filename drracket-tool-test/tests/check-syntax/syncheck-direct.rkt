@@ -494,6 +494,63 @@
  (set '(37 62)
       '(37 64)))
 
+;
+;
+;
+;
+;  ;;;                        ;;;     ;;;             ;;; ;;;
+;  ;;;                        ;;;                     ;;;
+;  ;;;  ;;;   ;;;;   ;;; ;;;  ;;; ;;  ;;; ;;; ;;   ;; ;;; ;;; ;;; ;;   ;; ;;;  ;;;;
+;  ;;; ;;;   ;; ;;;  ;;; ;;;  ;;;;;;; ;;; ;;;;;;; ;;;;;;; ;;; ;;;;;;; ;;;;;;  ;;; ;;
+;  ;;;;;;   ;;; ;;;  ;;; ;;;  ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;;
+;  ;;;;;;   ;;;;;;;  ;;; ;;;  ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;;  ;;;;
+;  ;;; ;;;  ;;;        ;;;;   ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;; ;;;    ;;;
+;  ;;;  ;;;  ;;;;;;    ;;;;   ;;;;;;; ;;; ;;; ;;; ;;;;;;; ;;; ;;; ;;; ;;;;;;; ;; ;;;
+;  ;;;   ;;;  ;;;;    ;;;;    ;;; ;;  ;;; ;;; ;;;  ;; ;;; ;;; ;;; ;;;  ;; ;;;  ;;;;
+;                                                                         ;;;
+;                                                                      ;;;;;
+;
+;
+;
+
+(define-get-arrows get-keybindings
+  (syncheck:add-keybinding _ kb-stroke kb-name kb-program)
+  (list kb-stroke kb-name kb-program))
+
+(let ([macro1 (string-append
+               "(define-syntax (my-macro stx)\n"
+               "(syntax-property\n"
+               "#'(+ 1 1)\n"
+               "'keybinding-info\n"
+               "(vector \"c:space\" \"my-keybinding\" #s(el-insert \"Hello, World!\"))))\n")])
+  (check-equal?
+   (get-keybindings
+    (string-append
+     "#lang racket\n"
+     "\n"
+     macro1
+     "\n"
+     "(my-macro a)\n"))
+   (set '("c:space" "my-keybinding" #s(el-insert "Hello, World!"))))
+
+  (check-equal?
+   (get-keybindings
+    (string-append
+     "#lang racket\n"
+     "\n"
+     macro1
+     "\n"
+     "(define-syntax (my-macro2 stx)\n"
+     "(define name \"Fig\")\n"
+     "(syntax-property\n"
+     "#'(+ 1 1)\n"
+     "'keybinding-info\n"
+     "(vector \"c:a\" \"my-keybinding-2\" `#s(el-insert ,name))))\n"
+     "\n"
+     "(my-macro a)\n"
+     "(my-macro2 a)\n"))
+   (set '("c:space" "my-keybinding" #s(el-insert "Hello, World!"))
+        '("c:a" "my-keybinding-2" #s(el-insert "Fig")))))
 
 ;                                                 
 ;                                                 

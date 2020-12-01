@@ -6,6 +6,7 @@
          "annotate.rkt"
          "contract-traversal.rkt"
          "xref.rkt"
+         "keybindings.rkt"
          string-constants
          racket/match
          racket/set
@@ -241,7 +242,8 @@
                                      sub-identifier-binding-directives
                                      level
                                      level-of-enclosing-module
-                                     mods))])
+                                     mods)
+              (add-keybindings stx))])
 
       (define (collect-nested-general-info stx)
         (let loop ([stx stx])
@@ -646,6 +648,22 @@
                            (vector-ref prop 1)
                            (vector-ref prop 2)
                            (vector-ref prop 3))])))
+
+(define keybinding-info-prop?
+  (vector/c #:flat? #t string? string? el-stmt?))
+
+;; add-keybindings : syntax -> void
+;; extracts keybinding info from syntax and sends it to the editor
+(define (add-keybindings stx)
+  (let loop ([prop (syntax-property stx 'keybinding-info)])
+    (cond
+      [(pair? prop)
+       (loop (car prop))
+       (loop (cdr prop))]
+      [(keybinding-info-prop? prop)
+       (add-keybinding-to-editor (vector-ref prop 0)
+                                 (vector-ref prop 1)
+                                 (vector-ref prop 2))])))
 
 ;; add-disappeared-bindings : syntax id-set integer -> void
 (define (add-disappeared-bindings stx binders sub-identifier-binding-directives disappeared-uses
@@ -1532,6 +1550,7 @@
          _end-text end-pos-left end-pos-right end-px end-py
          actual? level require-arrow? name-dup?)
     (log syncheck:add-mouse-over-status _text pos-left pos-right str)
+    (log syncheck:add-keybinding kb-stroke kb-name kb-program)
     (log syncheck:add-text-type _text start fin text-type)
     (log syncheck:add-background-color _text start fin color)
     (log syncheck:add-jump-to-definition _text start end id filename submods)
