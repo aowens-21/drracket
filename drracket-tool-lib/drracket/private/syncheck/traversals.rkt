@@ -44,6 +44,7 @@
          [tl-module-lang-requires (make-hash)]
          [tl-phase-to-requires (make-hash)]
          [tl-sub-identifier-binding-directives (make-hash)]
+         [tl-keybindings (make-hash)]
          [user-directory (and user-directory (simple-form-path user-directory))]
          [expanded-expression
           (λ (sexp [ignored void])
@@ -66,7 +67,8 @@
                          [require-for-syntaxes (make-hash)]
                          [require-for-templates (make-hash)]
                          [require-for-labels (make-hash)]
-                         [sub-identifier-binding-directives (make-hash)])
+                         [sub-identifier-binding-directives (make-hash)]
+                         [keybindings (make-hash)])
                      (annotate-basic sexp
                                      user-namespace user-directory
                                      phase-to-binders
@@ -77,7 +79,8 @@
                                      templrefs
                                      module-lang-requires
                                      phase-to-requires
-                                     sub-identifier-binding-directives)
+                                     sub-identifier-binding-directives
+                                     keybindings)
                      (annotate-variables user-namespace
                                          user-directory
                                          phase-to-binders
@@ -117,7 +120,8 @@
                                    tl-templrefs
                                    tl-module-lang-requires
                                    tl-phase-to-requires
-                                   tl-sub-identifier-binding-directives)]))))]
+                                   tl-sub-identifier-binding-directives
+                                   tl-keybindings)]))))]
          [expansion-completed
           (λ ()
             (parameterize ([current-directory (or user-directory (current-directory))]
@@ -169,6 +173,7 @@
 ;;                  string[directory]
 ;;                  id-set (8 of them)
 ;;                  hash-table[require-spec -> syntax] (three of them)
+;;                  mutable-set[vector]
 ;;               -> void
 (define (annotate-basic stx-obj
                         user-namespace user-directory
@@ -180,7 +185,8 @@
                         templrefs
                         module-lang-requires
                         phase-to-requires
-                        sub-identifier-binding-directives)
+                        sub-identifier-binding-directives
+                        keybindings)
 
   (let level+tail+mod-loop ([stx-obj stx-obj]
                             [level 0]
@@ -243,7 +249,8 @@
                                      level
                                      level-of-enclosing-module
                                      mods)
-              (add-keybindings stx))])
+              (add-keybindings stx
+                               keybindings))])
 
       (define (collect-nested-general-info stx)
         (let loop ([stx stx])
@@ -652,18 +659,18 @@
 (define keybinding-info-prop?
   (vector/c #:flat? #t string? string? el-stmt?))
 
-;; add-keybindings : syntax -> void
-;; extracts keybinding info from syntax and sends it to the editor
-(define (add-keybindings stx)
+;; add-keybindings : syntax hash-set[string->vector] -> void
+;; adds keybinding info to mutable set of keybindings and sends the updated set
+;; to the editor to be processed
+(define (add-keybindings stx keybindings)
   (let loop ([prop (syntax-property stx 'keybinding-info)])
     (cond
       [(pair? prop)
        (loop (car prop))
        (loop (cdr prop))]
       [(keybinding-info-prop? prop)
-       (add-keybinding-to-editor (vector-ref prop 0)
-                                 (vector-ref prop 1)
-                                 (vector-ref prop 2))])))
+       (hash-set! keybindings (vector-ref prop 1) prop)
+       (add-keybinding-to-editor keybindings)])))
 
 ;; add-disappeared-bindings : syntax id-set integer -> void
 (define (add-disappeared-bindings stx binders sub-identifier-binding-directives disappeared-uses
@@ -1550,7 +1557,7 @@
          _end-text end-pos-left end-pos-right end-px end-py
          actual? level require-arrow? name-dup?)
     (log syncheck:add-mouse-over-status _text pos-left pos-right str)
-    (log syncheck:add-keybinding kb-stroke kb-name kb-program)
+    (log syncheck:add-keybinding keybindings)
     (log syncheck:add-text-type _text start fin text-type)
     (log syncheck:add-background-color _text start fin color)
     (log syncheck:add-jump-to-definition _text start end id filename submods)

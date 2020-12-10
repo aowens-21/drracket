@@ -5,7 +5,6 @@
 
 (provide (all-defined-out))
 
-;; Keybinding language code, will be moved eventually
 (struct el-seq (e1 e2) #:prefab) ;; a sequence of el instructions
 (struct el-while-step (condition body step-size step-type) #:prefab) ;; evaluates body until condition no longer holds or steps stop making progress, steps by step-size for each iteration
 (struct el-insert (text) #:prefab) ;; insert some text at the current position (or replace current selection)
@@ -14,8 +13,8 @@
 (struct el-delete (p1 p2) #:prefab) ;; delete everything between two points
 (struct el-seek (dist) #:prefab) ;; move some distance from the current position (or end position of selection)
 (struct el-seek-while (condition step-size step-type) #:prefab) ;; seeks by step-size and type until condition no longer holds or we no longer make progress
-(struct el-let (sym posn body) #:prefab) ;; binds the given symbol to a position in body
-(struct el-set! (sym posn) #:prefab) ;; overwrites a binding inside a let body
+(struct el-let (sym val body) #:prefab) ;; binds the given symbol to a value in body
+(struct el-set! (sym val) #:prefab) ;; overwrites a binding inside a let body
 (struct el-down-sexp (posn) #:prefab) ;; move into the next forward sexp from the given position
 (struct el-up-sexp (posn) #:prefab) ;; exit the sexp at the given position
 (struct el-forward-sexp (posn) #:prefab) ;; skip over the next forward sexp
@@ -135,21 +134,32 @@
      (send editor insert-return)]
     [(el-set-position posn)
      (send editor set-position (num-or-num-expr editor bindings posn))]
-    [(el-let sym posn body)
-     (define position (interp-num-expr editor bindings posn))
+    [(el-let sym val-expr body)
+     (define val (cond [(el-num-expr? val-expr)
+                        (interp-num-expr editor bindings val-expr)]
+                       [(el-text-expr? val-expr)
+                        (interp-text-expr editor bindings val-expr)]
+                       [(or (number? val-expr) (string? val-expr))
+                        val-expr]))
      ;; Keep the old value and replace it after the let body has run so we have shadowing and we don't need
      ;; to copy the old hash table
      (cond [(hash-has-key? bindings sym)
             (define old-val (hash-ref bindings sym))
-            (hash-set! bindings sym position)
+            (hash-set! bindings sym val)
             (interp-stmt editor bindings body)
             (hash-set! bindings sym old-val)]
-           [else (hash-set! bindings sym position)
+           [else (hash-set! bindings sym val)
                  (interp-stmt editor bindings body)])]
-    [(el-set! sym posn)
+    [(el-set! sym new-val-expr)
      (unless (hash-has-key? bindings sym)
        (error "Cannot assign variable before definition: " sym))
-     (hash-set! bindings sym (interp-num-expr editor bindings posn))]
+     (define new-val (cond [(el-num-expr? new-val-expr)
+                        (interp-num-expr editor bindings new-val-expr)]
+                       [(el-text-expr? new-val-expr)
+                        (interp-text-expr editor bindings new-val-expr)]
+                       [(or (number? new-val-expr) (string? new-val-expr))
+                        new-val-expr]))
+     (hash-set! bindings sym new-val)]
     [(el-down-sexp posn)
      (send editor down-sexp (interp-num-expr editor bindings posn))]
     [(el-up-sexp posn)
@@ -180,16 +190,16 @@
   (unless (el-bool-expr? expr)
     (error "Expected el-bool-expr, got " expr))
   (match expr
-    [(el-equal lhs rhs)
+    [(el-equal lhs-expr rhs-expr)
      (define (interp-side e)
        (cond [(el-num-expr? e)
               (interp-num-expr editor bindings e)]
              [(el-text-expr? e)
               (interp-text-expr editor bindings e)]
              [else (error "Expected el-num-expr or el-text-expr, got " e)]))
-     (define l (interp-side lhs))
-     (define r (interp-side rhs))
-     (equal? l r)]
+     (define lhs (interp-side lhs-expr))
+     (define rhs (interp-side rhs-expr))
+     (equal? lhs rhs)]
     [(el-and b1 b2) (and (interp-bool-expr editor bindings b1) (interp-bool-expr editor bindings b2))]
     [(el-or b1 b2) (or (interp-bool-expr editor bindings b1) (interp-bool-expr editor bindings b2))]
     [(el-not b) (not (interp-bool-expr editor bindings b))]

@@ -54,12 +54,12 @@
     (send defs-text syncheck:add-mouse-over-status
           source pos-left pos-right str)))
 
-;; add-keybinding-to-editor : string string el-stmt? -> void
-(define (add-keybinding-to-editor kb-stroke kb-name kb-program)
+;; add-keybinding-to-editor : hash-set[string->vector] -> void
+(define (add-keybinding-to-editor keybindings)
   (define defs-text (current-annotations))
   (when defs-text
     (send defs-text syncheck:add-keybinding
-          kb-stroke kb-name kb-program)))
+          keybindings)))
 
 ;; find-source-editor : stx -> editor or false
 (define (find-source-editor stx)

@@ -1181,9 +1181,32 @@ If the namespace does not, they are colored the unbound color.
                       [else
                        (interval-map-cons*!
                         arrow-record start end to-add null)])))
+            
+            (define extension-keymap (new keymap:aug-keymap%))
+            (define/public (syncheck:add-keybinding keybindings)
+              (define keymap (new keymap:aug-keymap%))
+              (for-each (lambda (kb-vec)
+                          (define stroke (vector-ref kb-vec 0))
+                          (define name (vector-ref kb-vec 1))
+                          (define kb-program (vector-ref kb-vec 2))
+                          (send keymap add-function
+                                name
+                                (lambda (obj evt)
+                                  (when (is-a? obj editor<%>)
+                                    (send obj begin-edit-sequence)
+                                    (interp-stmt obj (make-hash) kb-program)
+                                    (send obj end-edit-sequence))))
+                          (send keymap map-function
+                                stroke
+                                name))
+                        (hash-values keybindings))
+              (send (drracket:rep:get-drs-bindings-keymap) remove-chained-keymap extension-keymap)
+              (send (drracket:rep:get-drs-bindings-keymap) chain-to-keymap keymap #f)
+              (set! extension-keymap keymap))
 
-            (define/public (syncheck:add-keybinding kb-stroke kb-name kb-program)
-              (add-keybinding-to-extension-keymap kb-stroke kb-name kb-program))
+            (define/public (syncheck:init-keybindings)
+              (send (drracket:rep:get-drs-bindings-keymap) remove-chained-keymap extension-keymap)
+              (set! extension-keymap (new keymap:aug-keymap%)))
 
             (inherit get-top-level-window)
             
@@ -2229,7 +2252,8 @@ If the namespace does not, they are colored the unbound color.
           (send defs-text syncheck:reset-docs-im)
           (send defs-text disable-blue-boxes)
           (send (send tab get-ints) disable-blue-boxes)
-          (send defs-text syncheck:init-arrows))
+          (send defs-text syncheck:init-arrows)
+          (send defs-text syncheck:init-keybindings))
         
         (define/private (process-trace-element known-dead-place-channels defs-text x)
           ;; using 'defs-text' all the time is wrong in the case of embedded editors,
@@ -2275,8 +2299,8 @@ If the namespace does not, they are colored the unbound color.
                    prefix defs-text prefix-left prefix-right)]
             [`#(syncheck:add-unused-require ,req-pos-left ,req-pos-right)
              (send defs-text syncheck:add-unused-require defs-text req-pos-left req-pos-right)]
-            [`#(syncheck:add-keybinding ,kb-stroke ,kb-name ,kb-program)
-             (send defs-text syncheck:add-keybinding kb-stroke kb-name kb-program)]))
+            [`#(syncheck:add-keybinding ,keybindings)
+             (send defs-text syncheck:add-keybinding keybindings)]))
         
         (define/private (build-name-dup? name-dup-pc name-dup-id known-dead-place-channels)
           (define (name-dup? name) 
@@ -2505,6 +2529,7 @@ If the namespace does not, they are colored the unbound color.
                (send the-tab reset-offer-kill)
                (send the-tab syncheck:clear-highlighting)
                (send (send the-tab get-defs) syncheck:init-arrows)
+               (send (send the-tab get-defs) syncheck:init-keybindings)
                (drracket:eval:expand-program
                 #:gui-modules? #f
                 (drracket:language:make-text/pos definitions-text-copy
@@ -2681,22 +2706,6 @@ If the namespace does not, they are colored the unbound color.
                          [editor-snip-admin (send enclosing-editor-snip get-admin)]
                          [enclosing-editor (send editor-snip-admin get-editor)])
                     (loop enclosing-editor))))])))
-
-    (define extension-keymap (new keymap:aug-keymap%))
-    
-    ;; add-keybinding-to-extension-keymap string string el-stmt? -> void
-    ;; adds function with ext-name to the extension-keymap which will interp
-    ;; the ext-program passed in, then maps this function in the keymap
-    ;; to the given stroke
-    (define (add-keybinding-to-extension-keymap stroke ext-name ext-program)
-      (send extension-keymap add-function
-            ext-name
-            (lambda (obj evt)
-              (when (is-a? obj editor<%>)
-                (send obj begin-edit-sequence)
-                (interp-stmt obj (make-hash) ext-program)
-                (send obj end-edit-sequence))))
-      (send extension-keymap map-function stroke ext-name))
     
     ;                                                 
     ;                                                 
@@ -2717,7 +2726,6 @@ If the namespace does not, they are colored the unbound color.
     
     
     (add-check-syntax-key-bindings (drracket:rep:get-drs-bindings-keymap))
-    (send (drracket:rep:get-drs-bindings-keymap) chain-to-keymap extension-keymap #t)
     (fw:color-prefs:add-to-preferences-panel (string-constant check-syntax)
                                              syncheck-add-to-preferences-panel)
     (drracket:module-language-tools:register-online-expansion-pref 
@@ -2762,7 +2770,8 @@ If the namespace does not, they are colored the unbound color.
             (send tab syncheck:clear-highlighting)
             (send defs-text syncheck:reset-docs-im)
             (send tab add-bkg-running-color 'syncheck "orchid" cs-syncheck-running)
-            (send defs-text syncheck:init-arrows))
+            (send defs-text syncheck:init-arrows)
+            (send defs-text syncheck:init-keybindings))
 
           (define drr-frame (send (send defs-text get-tab) get-frame))
           (cond
