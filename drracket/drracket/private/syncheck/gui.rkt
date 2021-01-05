@@ -1185,21 +1185,48 @@ If the namespace does not, they are colored the unbound color.
             (define extension-keymap (new keymap:aug-keymap%))
             (define/public (syncheck:add-keybinding keybindings)
               (define keymap (new keymap:aug-keymap%))
-              (for-each (lambda (kb-vec)
-                          (define stroke (vector-ref kb-vec 0))
-                          (define name (vector-ref kb-vec 1))
-                          (define kb-program (vector-ref kb-vec 2))
-                          (send keymap add-function
-                                name
-                                (lambda (obj evt)
-                                  (when (is-a? obj editor<%>)
-                                    (send obj begin-edit-sequence)
-                                    (interp-stmt obj (make-hash) kb-program)
-                                    (send obj end-edit-sequence))))
-                          (send keymap map-function
-                                stroke
-                                name))
-                        (hash-values keybindings))
+              (hash-for-each keybindings
+                             (lambda (stroke kb-info)
+                               (cond [(list? kb-info)
+                                      ;; TODO: If it's a list, we assume they didn't use global, this is a bug bc we can't assume that
+                                      ;; If there are ambiguous keybindings (more than one bound to one stroke) and one of them has global
+                                      ;; we have to use the global one
+                                      (define name (vector-ref (car kb-info) 2))
+                                      (send keymap add-function
+                                            name
+                                            (lambda (obj evt)
+                                              (when (is-a? obj editor<%>)
+                                                (define current-position (send obj get-end-position))
+                                                (for/list ([kb kb-info]
+                                                           #:final (and (> current-position (vector-ref (vector-ref kb 3) 0))
+                                                                        (< current-position (vector-ref (vector-ref kb 3) 1))))
+                                                  (define range (vector-ref kb 3))
+                                                  (when (and (> current-position (vector-ref range 0))
+                                                             (< current-position (vector-ref range 1)))
+                                                    (send obj begin-edit-sequence)
+                                                    (interp-stmt obj (make-hash) (vector-ref kb 1))
+                                                    (send obj end-edit-sequence))))))
+                                      (send keymap map-function stroke name)]
+                                     [else
+                                      (define program (vector-ref kb-info 1))
+                                      (define name (vector-ref kb-info 2))
+                                      (define range (vector-ref kb-info 3))
+                                      (send keymap add-function
+                                            name
+                                            (lambda (obj evt)
+                                              (when (is-a? obj editor<%>)
+                                                (cond [(equal? range 'global)
+                                                       (send obj begin-edit-sequence)
+                                                       (interp-stmt obj (make-hash) program)
+                                                       (send obj end-edit-sequence)]
+                                                      [else
+                                                       (define current-position (send obj get-end-position))
+                                                       (when (and (> current-position (vector-ref range 0))
+                                                                  (< current-position (vector-ref range 1)))
+                                                         (send obj begin-edit-sequence)
+                                                         (interp-stmt obj (make-hash) program)
+                                                         (send obj end-edit-sequence))]))))
+                                      (send keymap map-function stroke name)])))
               (send (drracket:rep:get-drs-bindings-keymap) remove-chained-keymap extension-keymap)
               (send (drracket:rep:get-drs-bindings-keymap) chain-to-keymap keymap #f)
               (set! extension-keymap keymap))

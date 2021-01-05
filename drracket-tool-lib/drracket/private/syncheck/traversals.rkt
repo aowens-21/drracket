@@ -656,8 +656,15 @@
                            (vector-ref prop 2)
                            (vector-ref prop 3))])))
 
+;; consists of a keystroke, keybinding language program, name, and active
+;; range (either start and end positions or 'global)
 (define keybinding-info-prop?
-  (vector/c #:flat? #t string? string? el-stmt?))
+  (vector/c #:flat? #t
+            string?
+            el-stmt?
+            string?
+            (or/c vector?
+                  symbol?)))
 
 ;; add-keybindings : syntax hash-set[string->vector] -> void
 ;; adds keybinding info to mutable set of keybindings and sends the updated set
@@ -669,7 +676,9 @@
        (loop (car prop))
        (loop (cdr prop))]
       [(keybinding-info-prop? prop)
-       (hash-set! keybindings (vector-ref prop 1) prop)
+       (if (hash-has-key? keybindings (vector-ref prop 0))
+           (hash-set! keybindings (vector-ref prop 0) (append (list prop) (hash-ref keybindings (vector-ref prop 0))))
+           (hash-set! keybindings (vector-ref prop 0) (list prop)))
        (add-keybinding-to-editor keybindings)])))
 
 ;; add-disappeared-bindings : syntax id-set integer -> void
