@@ -18,4 +18,5 @@
   syncheck:add-mouse-over-status
   syncheck:add-jump-to-definition
   syncheck:add-prefixed-require-reference
-  syncheck:add-unused-require)
+  syncheck:add-unused-require
+  syncheck:add-keybinding)

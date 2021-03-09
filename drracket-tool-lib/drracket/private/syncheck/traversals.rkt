@@ -16,6 +16,7 @@
          racket/pretty
          racket/path
          racket/dict
+         racket/vector
          syntax/id-table
          scribble/manual-struct
          (for-syntax racket/base))
@@ -664,7 +665,8 @@
             el-stmt?
             string?
             (or/c vector?
-                  symbol?)))
+                  symbol?)
+            srcloc?))
 
 ;; add-keybindings : syntax hash-set[string->vector] -> void
 ;; adds keybinding info to mutable set of keybindings and sends the updated set
@@ -676,10 +678,25 @@
        (loop (car prop))
        (loop (cdr prop))]
       [(keybinding-info-prop? prop)
-       (if (hash-has-key? keybindings (vector-ref prop 0))
-           (hash-set! keybindings (vector-ref prop 0) (append (list prop) (hash-ref keybindings (vector-ref prop 0))))
-           (hash-set! keybindings (vector-ref prop 0) (list prop)))
-       (add-keybinding-to-editor keybindings)])))
+       (define kb-srcloc (vector-ref prop 4))
+       (define stx-origin (syntax-property stx 'origin))
+       (when stx-origin
+         (define actual-origin (if (list? stx-origin)
+                                   (last (flatten stx-origin))
+                                   stx-origin))
+         (when (and (equal? (srcloc-source kb-srcloc) (syntax-source actual-origin))
+                    (= (srcloc-position kb-srcloc) (syntax-position actual-origin)))
+           (define active-range
+             (cond [(equal? (vector-ref prop 3) 'local)
+                    (vector (syntax-position actual-origin)
+                         (+ (syntax-position actual-origin)
+                            (syntax-span actual-origin)))]
+                   [else (vector-ref prop 3)]))
+           (vector-set! prop 3 active-range)
+           (if (hash-has-key? keybindings (vector-ref prop 0))
+               (hash-set! keybindings (vector-ref prop 0) (append (list (vector-take prop 4)) (hash-ref keybindings (vector-ref prop 0))))
+               (hash-set! keybindings (vector-ref prop 0) (list (vector-take prop 4))))
+           (add-keybinding-to-editor keybindings)))])))
 
 ;; add-disappeared-bindings : syntax id-set integer -> void
 (define (add-disappeared-bindings stx binders sub-identifier-binding-directives disappeared-uses

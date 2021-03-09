@@ -9,7 +9,8 @@
          rackunit
          syntax/modread
          racket/file
-         racket/format)
+         racket/format
+         racket/list)
 
 (define-syntax-rule
   (define-get-arrows get-what-arrows method-header arrow-info)
@@ -514,43 +515,46 @@
 ;
 
 (define-get-arrows get-keybindings
-  (syncheck:add-keybinding _ kb-stroke kb-name kb-program)
-  (list kb-stroke kb-name kb-program))
+  (syncheck:add-keybinding keybindings)
+  keybindings)
 
 (let ([macro1 (string-append
                "(define-syntax (my-macro stx)\n"
                "(syntax-property\n"
                "#'(+ 1 1)\n"
                "'keybinding-info\n"
-               "(vector \"c:space\" \"my-keybinding\" #s(el-insert \"Hello, World!\"))))\n")])
-  (check-equal?
-   (get-keybindings
-    (string-append
-     "#lang racket\n"
-     "\n"
-     macro1
-     "\n"
-     "(my-macro a)\n"))
-   (set '("c:space" "my-keybinding" #s(el-insert "Hello, World!"))))
+               "(vector \"c:space\" #s(el-insert \"Hello, World!\") \"my-keybinding\" 'global (make-srcloc (syntax-source stx) #f #f (+ 1 (syntax-position stx)) #f))))\n")])
+  (define single-kb-program-test (get-keybindings
+                                  (string-append
+                                   "#lang racket\n"
+                                   "\n"
+                                   macro1
+                                   "\n"
+                                   "(my-macro a)\n")))
+  (define single-kb-program-test-result (set-first single-kb-program-test))
+  (check-equal? (hash-ref single-kb-program-test-result "c:space")
+                '(#("c:space" #s(el-insert "Hello, World!") "my-keybinding" global)))
 
-  (check-equal?
-   (get-keybindings
-    (string-append
-     "#lang racket\n"
-     "\n"
-     macro1
-     "\n"
-     "(define-syntax (my-macro2 stx)\n"
-     "(define name \"Fig\")\n"
-     "(syntax-property\n"
-     "#'(+ 1 1)\n"
-     "'keybinding-info\n"
-     "(vector \"c:a\" \"my-keybinding-2\" `#s(el-insert ,name))))\n"
-     "\n"
-     "(my-macro a)\n"
-     "(my-macro2 a)\n"))
-   (set '("c:space" "my-keybinding" #s(el-insert "Hello, World!"))
-        '("c:a" "my-keybinding-2" #s(el-insert "Fig")))))
+ 
+  (define nested-kb-program-test-result (set-first (get-keybindings
+                                                   (string-append
+                                                    "#lang racket\n"
+                                                    "\n"
+                                                    "(define-syntax (outer-m stx)\n"
+                                                    "(syntax-property #'inner-m\n"
+                                                    "'keybinding-info\n"
+                                                    "(vector \"c:space\" #s(el-insert \"abc\") \"test-kb\" 'global (make-srcloc (syntax-source stx) #f #f (+ 1 (syntax-position stx)) #f))))\n"
+                                                    "\n"
+                                                    "(define-syntax (inner-m stx)\n"
+                                                    "(syntax-property #'#t\n"
+                                                    "'keybinding-info\n"
+                                                    "(vector \"c:space\" #s(el-insert \"def\") \"test-kb2\" 'local (make-srcloc (syntax-source stx) #f #f (+ 1 (syntax-position stx)) #f))))\n"
+                                                    "\n"
+                                                    "(outer-m)\n"
+                                                    "(inner-m)\n"))))
+  (check-equal? (hash-ref nested-kb-program-test-result "c:space")
+                '(#("c:space" #s(el-insert "def") "test-kb2" #(429 436))
+                  #("c:space" #s(el-insert "abc") "test-kb" global))))
 
 ;                                                 
 ;                                                 
