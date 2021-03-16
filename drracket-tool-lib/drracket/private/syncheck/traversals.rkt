@@ -685,12 +685,12 @@
                                    (last (flatten stx-origin))
                                    stx-origin))
          (when (and (equal? (srcloc-source kb-srcloc) (syntax-source actual-origin))
-                    (= (srcloc-position kb-srcloc) (syntax-position actual-origin)))
+                    (= (+ (srcloc-position kb-srcloc) 1) (syntax-position actual-origin)))
            (define active-range
              (cond [(equal? (vector-ref prop 3) 'local)
-                    (vector (syntax-position actual-origin)
-                         (+ (syntax-position actual-origin)
-                            (syntax-span actual-origin)))]
+                    (vector (srcloc-position kb-srcloc)
+                         (+ (srcloc-position kb-srcloc)
+                            (srcloc-span kb-srcloc)))]
                    [else (vector-ref prop 3)]))
            (vector-set! prop 3 active-range)
            (if (hash-has-key? keybindings (vector-ref prop 0))
