@@ -50,7 +50,7 @@ If the namespace does not, they are colored the unbound color.
          drracket/private/syncheck/colors
          drracket/private/syncheck/traversals
          drracket/private/syncheck/annotate
-         drracket/private/syncheck/keybindings
+         kb-base
          framework/private/logging-timer)
 (provide tool@)
 
@@ -1204,7 +1204,7 @@ If the namespace does not, they are colored the unbound color.
                                                   (when (and (> current-position (vector-ref range 0))
                                                              (< current-position (vector-ref range 1)))
                                                     (send obj begin-edit-sequence)
-                                                    (interp-stmt obj (make-hash) (vector-ref kb 1))
+                                                    (interp (vector-ref kb 1) obj (make-hash))
                                                     (send obj end-edit-sequence))))))
                                       (send keymap map-function stroke name)]
                                      [else
@@ -1217,14 +1217,14 @@ If the namespace does not, they are colored the unbound color.
                                               (when (is-a? obj editor<%>)
                                                 (cond [(equal? range 'global)
                                                        (send obj begin-edit-sequence)
-                                                       (interp-stmt obj (make-hash) program)
+                                                       (interp program obj (make-hash))
                                                        (send obj end-edit-sequence)]
                                                       [else
                                                        (define current-position (send obj get-end-position))
                                                        (when (and (> current-position (vector-ref range 0))
                                                                   (< current-position (vector-ref range 1)))
                                                          (send obj begin-edit-sequence)
-                                                         (interp-stmt obj (make-hash) program)
+                                                         (interp program obj (make-hash))
                                                          (send obj end-edit-sequence))]))))
                                       (send keymap map-function stroke name)])))
               (send (drracket:rep:get-drs-bindings-keymap) remove-chained-keymap extension-keymap)

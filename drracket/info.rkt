@@ -40,7 +40,8 @@
                "pict-snip-lib"
                "option-contract-lib"
                "syntax-color-lib"
-               "quickscript"))
+               "quickscript"
+               "kb-base"))
 
 (define build-deps '("mzscheme-doc"
                      "net-doc"
